@@ -63,14 +63,11 @@ if uploaded_file is not None:
             cantidad = st.text_input("Cantidad", value="1,000 UN")
             precio_sin_iva = st.text_input("Precio Sin IVA", value="162.2281")
             
-            # El botón de enviar pertenece al formulario
             submitted = st.form_submit_button("Generar PDF Oficial Motsur")
         # --- FIN DEL FORMULARIO ---
         
-        # Espacio dedicado exclusivamente a la descarga (completamente fuera del form)
         descarga_container = st.empty()
 
-    # Evaluamos si se presionó el botón (esta lógica está al mismo nivel que col1 y col2)
     if submitted:
         html_content = f'''<!DOCTYPE html>
         <html lang="es">
@@ -120,7 +117,7 @@ if uploaded_file is not None:
                 <tr><td class="info-label">NOMBRE:</td><td class="info-value">{cliente}</td><td class="info-label">FECHA:</td><td class="info-value">{fecha}</td></tr>
                 <tr><td class="info-label">CEDULA/RUC:</td><td class="info-value">--</td><td class="info-label">TELEFONO:</td><td class="info-value">{telefono}</td></tr>
                 <tr><td class="info-label">EMAIL:</td><td class="info-value">--</td><td class="info-label">ORDEN:</td><td class="info-value">{orden}</td></tr>
-                <tr><td class="info-label">RESPONSABLE:</td><td class="info-value">{responsable}</td><td class="info-label">OFER. MOTSUR:</td><td class="info-value">TCL WM</td></tr>
+                <tr><td class="info-label">RESPONSABLE:</td><td class="info-value">{responsable}</td><td class="info-label"></td><td class="info-value"></td></tr>
             </table>
             <div class="table-container">
                 <table class="data-table">
@@ -161,7 +158,6 @@ if uploaded_file is not None:
             f.write(html_content)
         HTML("temp.html").write_pdf(pdf_filename)
         
-        # Mostramos el botón en el contenedor que preparamos en la columna 2
         with descarga_container:
             st.success("¡PDF generado con éxito!")
             with open(pdf_filename, "rb") as pdf_file:
