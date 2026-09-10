@@ -61,7 +61,8 @@ if uploaded_file is not None:
             material = st.text_input("Código / Material", value="PL55P75")
             descripcion = st.text_input("Descripción", value="PANEL TV 55P755 CBU")
             cantidad = st.text_input("Cantidad", value="1,000 UN")
-            precio_sin_iva = st.text_input("Precio Sin IVA", value="162.2281")
+            # Valor redondeado a 2 decimales por defecto (162.23)
+            precio_sin_iva = st.text_input("Precio Sin IVA", value="162.23")
             
             submitted = st.form_submit_button("Generar PDF Oficial Motsur")
         # --- FIN DEL FORMULARIO ---
