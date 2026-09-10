@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from weasyprint import HTML
 
 st.set_page_config(
     page_title="Gestión de Cotizaciones y Órdenes Motsur",
@@ -12,13 +13,11 @@ st.title("📋 Procesador y Gestor de Cotizaciones Motsur")
 st.markdown("---")
 
 st.sidebar.header("Panel de Control")
-st.sidebar.info("Sube o adjunta la proforma de Motsur para extraer los datos y estructurarlos para el sistema.")
+st.sidebar.info("Adjunta la proforma de Motsur para generar el PDF oficial sin IVA.")
 
-# Componente para adjuntar la cotización (imagen o PDF)
 uploaded_file = st.file_uploader(
     "Adjuntar Proforma / Cotización (PDF o Imagen)", 
-    type=["pdf", "png", "jpg", "jpeg"],
-    help="Sube la proforma de Motsur como la mostrada en el sistema."
+    type=["pdf", "png", "jpg", "jpeg"]
 )
 
 if uploaded_file is not None:
@@ -29,46 +28,97 @@ if uploaded_file is not None:
     with col1:
         st.subheader("📄 Vista Previa del Documento")
         if uploaded_file.type in ["image/png", "image/jpeg", "image/jpg"]:
-            st.image(uploaded_file, caption="Proforma Motsur Adjunta", use_container_width=True)
+            st.image(uploaded_file, caption="Proforma Motsur", use_container_width=True)
         else:
-            st.info("Archivo PDF cargado correctamente.")
+            st.info("Archivo PDF cargado.")
 
     with col2:
-        st.subheader("⚙️ Datos Extraídos de la Cotización")
+        st.subheader("⚙️ Configuración y Valores de la Cotización")
         
-        with st.form("proforma_form"):
-            st.markdown("### Cabecera de la Proforma")
+        with st.form("motsur_form"):
             cliente = st.text_input("Nombre / Cliente", value="PABLO LOPEZ")
-            fecha = st.date_input("Fecha", value=datetime.strptime("28/08/2026", "%d/%m/%Y"))
+            fecha = st.text_input("Fecha", value="10/09/2026")
             telefono = st.text_input("Teléfono", value="0995115782")
             orden = st.text_input("Orden #", value="35663")
             responsable = st.text_input("Responsable", value="German Tenemaza")
             
-            st.markdown("### Detalle de Ítems")
-            data_items = {
-                "CODIGO": ["PL43P635"],
-                "DESCRIPCION": ["TELEVISION 43P635 CBU"],
-                "CANTIDAD": [1],
-                "PRECIO SIN IVA": [110.46],
-                "TOTAL": [110.46]
-            }
-            df_items = pd.DataFrame(data_items)
-            edited_df = st.data_editor(df_items, num_rows="dynamic", use_container_width=True)
+            st.markdown("---")
+            st.markdown("### Detalle de Ítems (Sin IVA)")
+            item_num = st.text_input("Número de Ítem", value="10")
+            material = st.text_input("Código / Material", value="PL55P75")
+            descripcion = st.text_input("Descripción", value="PANEL TV 55P755 CBU")
+            cantidad = st.text_input("Cantidad", value="1,000 UN")
+            precio_sin_iva = st.text_input("Precio Sin IVA", value="162.2281")
             
-            total_sin_iva = edited_df["TOTAL"].sum()
-            st.markdown(f"**TOTAL SIN IVA:** ${total_sin_iva:.2f}")
-            
-            submitted = st.form_submit_button("Validar y Generar Registro")
+            submitted = st.form_submit_button("Generar PDF Oficial (Sin IVA)")
             
             if submitted:
-                st.success("¡Datos validados y listos para el sistema!")
-                st.balloons()
+                html_content = f'''<!DOCTYPE html>
+                <html lang="es">
+                <head>
+                <meta charset="UTF-8">
+                <style>
+                    @page {{ size: A4; margin: 12mm 15mm; background-color: #ffffff; }}
+                    body {{ font-family: Arial, Helvetica, sans-serif; color: #111111; margin: 0; padding: 0; font-size: 10pt; }}
+                    .header-container {{ width: 100%; border-bottom: 3px solid #003366; margin-bottom: 15px; padding-bottom: 8px; }}
+                    .header-table {{ width: 100%; border-collapse: collapse; }}
+                    .logo-box {{ width: 25%; vertical-align: middle; }}
+                    .logo-img-placeholder {{ background-color: #c00; color: white; font-weight: bold; text-align: center; padding: 8px 5px; font-size: 14pt; }}
+                    .title-box {{ width: 75%; text-align: right; vertical-align: middle; font-size: 20pt; font-weight: bold; color: #003366; }}
+                    .info-grid {{ width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #b0c4de; background-color: #f4f8fb; }}
+                    .info-grid td {{ padding: 6px 10px; font-size: 9.5pt; border-bottom: 1px solid #d0e0ef; }}
+                    .info-label {{ font-weight: bold; color: #333333; width: 18%; text-transform: uppercase; }}
+                    table.data-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }}
+                    table.data-table th {{ background-color: #2b579a; color: white; text-align: center; padding: 8px 6px; font-size: 9.5pt; text-transform: uppercase; }}
+                    table.data-table td {{ padding: 8px 6px; border: 1px solid #d0d0d0; font-size: 9.5pt; }}
+                    .totals-container {{ width: 100%; margin-top: 10px; }}
+                    .note-box {{ float: left; width: 55%; font-style: italic; color: #555; font-size: 8.5pt; padding-top: 10px; }}
+                    .totals-box {{ float: right; width: 42%; border: 1px solid #b0c4de; background-color: #f4f8fb; padding: 8px 12px; }}
+                    .totals-row {{ width: 100%; }}
+                    .totals-label {{ font-weight: bold; color: #c00; font-size: 10pt; float: left; }}
+                    .totals-value {{ font-weight: bold; color: #c00; font-size: 11pt; float: right; }}
+                </style>
+                </head>
+                <body>
+                    <div class="header-container">
+                        <table class="header-table">
+                            <tr>
+                                <td class="logo-box"><div class="logo-img-placeholder">MOTSUR</div></td>
+                                <td class="title-box">PROFORMA</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <table class="info-grid">
+                        <tr><td class="info-label">NOMBRE:</td><td>{cliente}</td><td class="info-label">FECHA:</td><td>{fecha}</td></tr>
+                        <tr><td class="info-label">TELEFONO:</td><td>{telefono}</td><td class="info-label">ORDEN:</td><td>{orden}</td></tr>
+                        <tr><td class="info-label">RESPONSABLE:</td><td>{responsable}</td><td class="info-label">OFERTA:</td><td>TCL WM</td></tr>
+                    </table>
+                    <table class="data-table">
+                        <thead><tr><th>CÓDIGO</th><th>DESCRIPCIÓN (ÍTEM: {item_num})</th><th>CANTIDAD</th><th>PRECIO SIN IVA</th><th>TOTAL</th></tr></thead>
+                        <tbody><tr><td style="text-align:center;">{material}</td><td>{descripcion}</td><td style="text-align:center;">{cantidad}</td><td style="text-align:right;">${precio_sin_iva}</td><td style="text-align:right;">${precio_sin_iva}</td></tr></tbody>
+                    </table>
+                    <div class="totals-container">
+                        <div class="note-box">NOTA: PRECIOS SUJETOS A CAMBIOS.<br>* TODOS LOS PRECIOS SE PRESENTAN SIN IVA.</div>
+                        <div class="totals-box">
+                            <div class="totals-row"><span class="totals-label">TOTAL SIN IVA:</span><span class="totals-value">${precio_sin_iva}</span></div>
+                        </div>
+                    </div>
+                </body>
+                </html>'''
                 
-                st.download_button(
-                    label="📥 Descargar Resumen en CSV",
-                    data=edited_df.to_csv(index=False).encode('utf-8'),
-                    file_name=f"orden_{orden}_motsur.csv",
-                    mime="text/csv"
-                )
+                pdf_filename = f"orden_{orden}_sin_iva.pdf"
+                with open("temp.html", "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                HTML("temp.html").write_pdf(pdf_filename)
+                
+                st.success("¡PDF generado con éxito!")
+                
+                with open(pdf_filename, "rb") as pdf_file:
+                    st.download_button(
+                        label="📥 Descargar PDF Oficial (Sin IVA)",
+                        data=pdf_file,
+                        file_name=pdf_filename,
+                        mime="application/pdf"
+                    )
 else:
-    st.warning("Por favor, adjunta una cotización o proforma para comenzar.")
+    st.warning("Por favor, adjunta la cotización para habilitar el generador.")
