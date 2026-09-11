@@ -16,43 +16,41 @@ st.title("📋 Procesador y Gestor de Cotizaciones Motsur")
 st.markdown("---")
 
 st.sidebar.header("Panel de Control")
-st.sidebar.info("Adjunta la proforma o captura de SAP. El material de la sección 'Posiciones' se extraerá automáticamente.")
+st.sidebar.info("Adjunta la proforma o captura de SAP. El código de la tabla 'Posiciones (todas)' se extraerá automáticamente.")
 
 uploaded_file = st.file_uploader(
     "Adjuntar Proforma / Captura SAP (PDF o Imagen)", 
     type=["pdf", "png", "jpg", "jpeg"]
 )
 
-# Valores por defecto iniciales
+# Valores por defecto iniciales basados en la captura
 ext_cliente = "LA GANGA R.C.A. S.A., JOSE CASTILLO CASTILLO, GUAYAQUIL, Ecuador"
 ext_fecha = "11/09/2026"
 ext_telefono = "0995115782"
 ext_orden = "35663"
 ext_responsable = "German Tenemaza"
-ext_material = "PL55P75"
-ext_descripcion = "PANEL TV 55P755 CBU"
+ext_material = "PL55P6K"
+ext_descripcion = "PANEL TV 55P6K CBU"
 ext_cantidad = "1,000 UN"
 ext_precio = "159.26"
 
 if uploaded_file is not None:
     st.success("¡Documento adjuntado y procesado correctamente!")
     
-    # Extracción automática mediante OCR si es imagen
     if uploaded_file.type in ["image/png", "image/jpeg", "image/jpg"]:
         try:
             image = Image.open(uploaded_file)
             ocr_text = pytesseract.image_to_string(image)
             
-            # Buscar solicitante / cliente
             if "LA GANGA" in ocr_text.upper():
                 ext_cliente = "LA GANGA R.C.A. S.A., JOSE CASTILLO CASTILLO, GUAYAQUIL, Ecuador"
                 
-            # Extraer material específicamente de la columna Material / Posiciones
+            # Búsqueda específica en la sección de posiciones o códigos de material tipo PL...
             m_material = re.search(r'(?:PL[0-9A-Z]+)', ocr_text)
             if m_material:
                 ext_material = m_material.group(0).strip()
+                ext_descripcion = f"PANEL TV {ext_material} CBU"
                 
-            # Extraer el valor neto y asignarlo como precio sin IVA
             m_valor = re.search(r'Valor neto[:\s]*([\d,.]+)', ocr_text, re.IGNORECASE)
             if m_valor:
                 val_neto_str = m_valor.group(1).replace(',', '.')
@@ -90,9 +88,8 @@ if uploaded_file is not None:
             )
 
     with col2:
-        st.subheader("⚙️ Configuración y Valores Extraídos")
+        st.subheader("⚙️ Configuración y Valores Extraídos de la Tabla")
         
-        # --- INICIO DEL FORMULARIO ---
         with st.form("motsur_form"):
             cliente = st.text_input("Solicitante / Cliente", value=ext_cliente)
             fecha = st.text_input("Fecha", value=ext_fecha)
@@ -101,19 +98,18 @@ if uploaded_file is not None:
             responsable = st.text_input("Responsable", value=ext_responsable)
             
             st.markdown("---")
-            st.markdown("### Detalle")
-            material = st.text_input("Código / Material (Columna Posiciones)", value=ext_material)
+            st.markdown("### Detalle (Tabla Posiciones)")
+            material = st.text_input("Material (Columna Material)", value=ext_material)
             descripcion = st.text_input("Descripción", value=ext_descripcion)
             cantidad = st.text_input("Cantidad", value=ext_cantidad)
             precio_sin_iva = st.text_input("Precio Sin IVA (Valor Neto SAP)", value=ext_precio)
             
             submitted = st.form_submit_button("Generar PDF Oficial Motsur")
-        # --- FIN DEL FORMULARIO ---
         
         descarga_container = st.empty()
 
     if submitted:
-        html_content = f'''<!DOCTYPE html>
+        html_content = f"""<!DOCTYPE html>
         <html lang="es">
         <head>
         <meta charset="UTF-8">
@@ -194,7 +190,7 @@ if uploaded_file is not None:
                 </div>
             </div>
         </body>
-        </html>'''
+        </html>"""
         
         pdf_filename = f"orden_{orden}_motsur.pdf"
         with open("temp.html", "w", encoding="utf-8") as f:
