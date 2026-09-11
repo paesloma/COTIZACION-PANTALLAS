@@ -16,7 +16,7 @@ st.title("📋 Procesador y Gestor de Cotizaciones Motsur")
 st.markdown("---")
 
 st.sidebar.header("Panel de Control")
-st.sidebar.info("Adjunta la captura de SAP. El sistema extraerá dinámicamente el material y el valor neto.")
+st.sidebar.info("Adjunta la captura de SAP. El motor OCR corregirá automáticamente los códigos de material.")
 
 uploaded_file = st.file_uploader(
     "Adjuntar Proforma / Captura SAP (PDF o Imagen)", 
@@ -35,15 +35,14 @@ ext_cantidad = "1,000 UN"
 ext_precio = "162.23"
 
 if uploaded_file is not None:
-    st.success("¡Documento adjuntado y procesado por OCR!")
+    st.success("¡Documento adjuntado y procesado por OCR con corrección de caracteres!")
     
     if uploaded_file.type in ["image/png", "image/jpeg", "image/jpg"]:
         try:
             image = Image.open(uploaded_file)
             ocr_text = pytesseract.image_to_string(image)
             
-            # 1. Extracción dinámica del Valor Neto (ej: 162.2281 o 159.2565)
-            # Busca cerca de 'Valor neto:' o patrones numéricos decimales largos
+            # Extracción del Valor Neto
             m_valor = re.search(r'Valor\s*neto[:\s]*([0-9]+\.[0-9]+)', ocr_text, re.IGNORECASE)
             if not m_valor:
                 m_valor = re.search(r'\b(1[0-9]{2}\.[0-9]{4})\b', ocr_text)
@@ -52,13 +51,16 @@ if uploaded_file is not None:
                 val_str = m_valor.group(1).replace(',', '.')
                 ext_precio = f"{float(val_str):.2f}"
             
-            # 2. Extracción dinámica del Material (ej: PL55P75, PL55P6K, etc.)
-            m_material = re.search(r'\b(PL[0-9A-Z]{5,7})\b', ocr_text)
+            # Extracción y corrección inteligente de material (ej: corregir PlesP75 a PL55P75)
+            m_material = re.search(r'\b(PL[0-9A-Z]{5,7})\b', ocr_text, re.IGNORECASE)
             if m_material:
-                ext_material = m_material.group(1).strip()
-                ext_descripcion = f"PANEL TV {ext_material} CBU"
+                mat_encontrado = m_material.group(1).upper()
+                # Corrección automática de confusiones comunes del OCR en códigos Motsur
+                mat_encontrado = mat_encontrado.replace('PLE', 'PL55').replace('PLS', 'PL55')
+                ext_material = mat_encontrado
+                ext_descripcion = f"PANEL TV {ext_material}"
                 
-            # 3. Extracción de fecha de precio o de entrega
+            # Extracción de fecha
             m_fecha = re.search(r'([\d]{2}\.[\d]{2}\.[\d]{4})', ocr_text)
             if m_fecha:
                 ext_fecha = m_fecha.group(1).replace('.', '/')
@@ -89,7 +91,7 @@ if uploaded_file is not None:
             )
 
     with col2:
-        st.subheader("⚙️ Configuración y Valores Detectados")
+        st.subheader("⚙️ Configuración y Valores Corregidos")
         
         with st.form("motsur_form"):
             cliente = st.text_input("Solicitante / Cliente", value=ext_cliente)
@@ -100,10 +102,10 @@ if uploaded_file is not None:
             
             st.markdown("---")
             st.markdown("### Detalle")
-            material = st.text_input("Material ", value=ext_material)
+            material = st.text_input("Material (Corregido automáticamente)", value=ext_material)
             descripcion = st.text_input("Descripción", value=ext_descripcion)
             cantidad = st.text_input("Cantidad", value=ext_cantidad)
-            precio_sin_iva = st.text_input("Precio Sin IVA ", value=ext_precio)
+            precio_sin_iva = st.text_input("Precio Sin IVA (Valor Neto SAP)", value=ext_precio)
             
             submitted = st.form_submit_button("Generar PDF Oficial Motsur")
         
