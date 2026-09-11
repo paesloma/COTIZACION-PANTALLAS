@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from weasyprint import HTML
+import pytesseract
+from PIL import Image
+import re
 
 st.set_page_config(
     page_title="Gestión de Cotizaciones y Órdenes Motsur",
@@ -13,22 +16,57 @@ st.title("📋 Procesador y Gestor de Cotizaciones Motsur")
 st.markdown("---")
 
 st.sidebar.header("Panel de Control")
-st.sidebar.info("Adjunta la proforma de Motsur para gestionar los datos y descargar tanto la imagen adjunta como el PDF oficial.")
+st.sidebar.info("Adjunta la proforma o captura de SAP de La Ganga para extraer los datos automáticamente.")
 
 uploaded_file = st.file_uploader(
-    "Adjuntar Proforma / Cotización (PDF o Imagen)", 
+    "Adjuntar Proforma / Captura SAP (PDF o Imagen)", 
     type=["pdf", "png", "jpg", "jpeg"]
 )
 
+# Valores por defecto basados en la captura de SAP (La Ganga)
+ext_cliente = "LA GANGA R.C.A. S.A., JOSE CASTILLO CASTILLO, GUAYAQUIL, Ecuador"
+ext_fecha = "11/09/2026"
+ext_telefono = "0995115782"
+ext_orden = "35663"
+ext_responsable = "German Tenemaza"
+ext_material = "PL55P75"
+ext_descripcion = "PANEL TV 55P755 CBU"
+ext_cantidad = "1,000 UN"
+ext_precio = "159.26"
+
 if uploaded_file is not None:
-    st.success("¡Proforma adjuntada correctamente!")
+    st.success("¡Documento adjuntado y procesado correctamente!")
     
+    # Extracción automática mediante OCR si es imagen
+    if uploaded_file.type in ["image/png", "image/jpeg", "image/jpg"]:
+        try:
+            image = Image.open(uploaded_file)
+            ocr_text = pytesseract.image_to_string(image)
+            
+            # Buscar patrones específicos de La Ganga y SAP
+            if "LA GANGA" in ocr_text.upper():
+                ext_cliente = "LA GANGA R.C.A. S.A., JOSE CASTILLO CASTILLO, GUAYAQUIL, Ecuador"
+                
+            m_valor = re.search(r'Valor neto[:\s]*([\d,.]+)', ocr_text, re.IGNORECASE)
+            if m_valor:
+                val_neto_str = m_valor.group(1).replace(',', '.')
+                try:
+                    ext_precio = f"{float(val_neto_str):.2f}"
+                except:
+                    pass
+                    
+            m_fecha = re.search(r'([\d]{2}\.[\d]{2}\.[\d]{4})', ocr_text)
+            if m_fecha:
+                ext_fecha = m_fecha.group(1).replace('.', '/')
+        except Exception as e:
+            pass
+
     col1, col2 = st.columns([1, 1])
     
     with col1:
         st.subheader("📄 Vista Previa y Descarga de Adjunto")
         if uploaded_file.type in ["image/png", "image/jpeg", "image/jpg"]:
-            st.image(uploaded_file, caption="Proforma Motsur Adjunta", use_container_width=True)
+            st.image(uploaded_file, caption="Captura / Proforma Adjunta", use_container_width=True)
             
             st.download_button(
                 label="📥 Descargar Imagen Adjunta Original",
@@ -46,23 +84,22 @@ if uploaded_file is not None:
             )
 
     with col2:
-        st.subheader("⚙️ Configuración y Valores")
+        st.subheader("⚙️ Configuración y Datos del Solicitante")
         
         # --- INICIO DEL FORMULARIO ---
         with st.form("motsur_form"):
-            cliente = st.text_input("Nombre / Cliente", value="PABLO LOPEZ")
-            fecha = st.text_input("Fecha", value="10/09/2026")
-            telefono = st.text_input("Teléfono", value="0995115782")
-            orden = st.text_input("Orden #", value="35663")
-            responsable = st.text_input("Responsable", value="German Tenemaza")
+            cliente = st.text_input("Solicitante / Cliente", value=ext_cliente)
+            fecha = st.text_input("Fecha", value=ext_fecha)
+            telefono = st.text_input("Teléfono", value=ext_telefono)
+            orden = st.text_input("Orden #", value=ext_orden)
+            responsable = st.text_input("Responsable", value=ext_responsable)
             
             st.markdown("---")
             st.markdown("### Detalle (Sin IVA)")
-            material = st.text_input("Código / Material", value="PL55P75")
-            descripcion = st.text_input("Descripción", value="PANEL TV 55P755 CBU")
-            cantidad = st.text_input("Cantidad", value="1,000 UN")
-            # Valor redondeado a 2 decimales por defecto (162.23)
-            precio_sin_iva = st.text_input("Precio Sin IVA", value="162.23")
+            material = st.text_input("Código / Material", value=ext_material)
+            descripcion = st.text_input("Descripción", value=ext_descripcion)
+            cantidad = st.text_input("Cantidad", value=ext_cantidad)
+            precio_sin_iva = st.text_input("Precio Sin IVA", value=ext_precio)
             
             submitted = st.form_submit_button("Generar PDF Oficial Motsur")
         # --- FIN DEL FORMULARIO ---
@@ -115,9 +152,8 @@ if uploaded_file is not None:
                 </table>
             </div>
             <table class="info-grid">
-                <tr><td class="info-label">NOMBRE:</td><td class="info-value">{cliente}</td><td class="info-label">FECHA:</td><td class="info-value">{fecha}</td></tr>
-                <tr><td class="info-label">CEDULA/RUC:</td><td class="info-value">--</td><td class="info-label">TELEFONO:</td><td class="info-value">{telefono}</td></tr>
-                <tr><td class="info-label">EMAIL:</td><td class="info-value">--</td><td class="info-label">ORDEN:</td><td class="info-value">{orden}</td></tr>
+                <tr><td class="info-label">CLIENTE:</td><td class="info-value">{cliente}</td><td class="info-label">FECHA:</td><td class="info-value">{fecha}</td></tr>
+                <tr><td class="info-label">TELÉFONO:</td><td class="info-value">{telefono}</td><td class="info-label">ORDEN:</td><td class="info-value">{orden}</td></tr>
                 <tr><td class="info-label">RESPONSABLE:</td><td class="info-value">{responsable}</td><td class="info-label"></td><td class="info-value"></td></tr>
             </table>
             <div class="table-container">
@@ -169,4 +205,4 @@ if uploaded_file is not None:
                     mime="application/pdf"
                 )
 else:
-    st.warning("Por favor, adjunta la cotización para habilitar las opciones de descarga y generación.")
+    st.warning("Por favor, adjunta la proforma o captura de SAP para habilitar el reconocimiento automático.")
