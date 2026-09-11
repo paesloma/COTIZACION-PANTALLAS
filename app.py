@@ -16,14 +16,14 @@ st.title("📋 Procesador y Gestor de Cotizaciones Motsur")
 st.markdown("---")
 
 st.sidebar.header("Panel de Control")
-st.sidebar.info("Adjunta la proforma o captura de SAP de La Ganga para extraer los datos automáticamente.")
+st.sidebar.info("Adjunta la proforma o captura de SAP. El material de la sección 'Posiciones' se extraerá automáticamente.")
 
 uploaded_file = st.file_uploader(
     "Adjuntar Proforma / Captura SAP (PDF o Imagen)", 
     type=["pdf", "png", "jpg", "jpeg"]
 )
 
-# Valores por defecto basados en la captura de SAP (La Ganga)
+# Valores por defecto iniciales
 ext_cliente = "LA GANGA R.C.A. S.A., JOSE CASTILLO CASTILLO, GUAYAQUIL, Ecuador"
 ext_fecha = "11/09/2026"
 ext_telefono = "0995115782"
@@ -43,10 +43,16 @@ if uploaded_file is not None:
             image = Image.open(uploaded_file)
             ocr_text = pytesseract.image_to_string(image)
             
-            # Buscar patrones específicos de La Ganga y SAP
+            # Buscar solicitante / cliente
             if "LA GANGA" in ocr_text.upper():
                 ext_cliente = "LA GANGA R.C.A. S.A., JOSE CASTILLO CASTILLO, GUAYAQUIL, Ecuador"
                 
+            # Extraer material específicamente de la columna Material / Posiciones
+            m_material = re.search(r'(?:PL[0-9A-Z]+)', ocr_text)
+            if m_material:
+                ext_material = m_material.group(0).strip()
+                
+            # Extraer el valor neto y asignarlo como precio sin IVA
             m_valor = re.search(r'Valor neto[:\s]*([\d,.]+)', ocr_text, re.IGNORECASE)
             if m_valor:
                 val_neto_str = m_valor.group(1).replace(',', '.')
@@ -84,7 +90,7 @@ if uploaded_file is not None:
             )
 
     with col2:
-        st.subheader("⚙️ Configuración y Datos del Solicitante")
+        st.subheader("⚙️ Configuración y Valores Extraídos")
         
         # --- INICIO DEL FORMULARIO ---
         with st.form("motsur_form"):
@@ -95,11 +101,11 @@ if uploaded_file is not None:
             responsable = st.text_input("Responsable", value=ext_responsable)
             
             st.markdown("---")
-            st.markdown("### Detalle (Sin IVA)")
-            material = st.text_input("Código / Material", value=ext_material)
+            st.markdown("### Detalle")
+            material = st.text_input("Código / Material (Columna Posiciones)", value=ext_material)
             descripcion = st.text_input("Descripción", value=ext_descripcion)
             cantidad = st.text_input("Cantidad", value=ext_cantidad)
-            precio_sin_iva = st.text_input("Precio Sin IVA", value=ext_precio)
+            precio_sin_iva = st.text_input("Precio Sin IVA (Valor Neto SAP)", value=ext_precio)
             
             submitted = st.form_submit_button("Generar PDF Oficial Motsur")
         # --- FIN DEL FORMULARIO ---
@@ -179,7 +185,7 @@ if uploaded_file is not None:
                 </table>
             </div>
             <div class="totals-container">
-                <div class="note-box">NOTA: PRECIOS SUJETOS A CAMBIOS.<br>* TODOS LOS PRECIOS SE PRESENTAN SIN IVA.</div>
+                <div class="note-box">NOTA: PRECIOS SUJETOS A CAMBIOS.<br>* TODOS LOS PRECIOS SE PRESENTAN SIN IVA (VALOR NETO SAP).</div>
                 <div class="totals-box">
                     <div class="totals-row">
                         <span class="totals-label">TOTAL SIN IVA:</span>
