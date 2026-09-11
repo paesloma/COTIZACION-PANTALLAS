@@ -4,6 +4,7 @@ from datetime import datetime
 from weasyprint import HTML
 import pytesseract
 from PIL import Image
+import io
 import re
 
 st.set_page_config(
@@ -16,11 +17,12 @@ st.title("📋 Procesador y Gestor de Cotizaciones Motsur")
 st.markdown("---")
 
 st.sidebar.header("Panel de Control")
-st.sidebar.info("Adjunta la captura de SAP. El motor OCR corregirá automáticamente los códigos de material.")
+st.sidebar.info("Puedes subir tu captura o proforma de SAP. El sistema extraerá automáticamente el material y el valor neto.")
 
+# Widget que acepta imágenes y permite pegar capturas directamente
 uploaded_file = st.file_uploader(
-    "Adjuntar Proforma / Captura SAP (PDF o Imagen)", 
-    type=["pdf", "png", "jpg", "jpeg"]
+    "Adjunta o pega tu captura de pantalla / Proforma (PNG, JPG, JPEG)", 
+    type=["png", "jpg", "jpeg", "pdf"]
 )
 
 # Valores base por defecto
@@ -35,8 +37,9 @@ ext_cantidad = "1,000 UN"
 ext_precio = "162.23"
 
 if uploaded_file is not None:
-    st.success("¡Documento adjuntado y procesado por OCR con corrección de caracteres!")
+    st.success("¡Captura / Documento cargado y procesado con éxito!")
     
+    # Procesamiento OCR de la imagen cargada o pegada
     if uploaded_file.type in ["image/png", "image/jpeg", "image/jpg"]:
         try:
             image = Image.open(uploaded_file)
@@ -51,12 +54,12 @@ if uploaded_file is not None:
                 val_str = m_valor.group(1).replace(',', '.')
                 ext_precio = f"{float(val_str):.2f}"
             
-            # Extracción y corrección inteligente de material (ej: corregir PlesP75 a PL55P75)
+            # Extracción y limpieza del código de material
             m_material = re.search(r'\b(PL[0-9A-Z]{5,7})\b', ocr_text, re.IGNORECASE)
             if m_material:
                 mat_encontrado = m_material.group(1).upper()
-                # Corrección automática de confusiones comunes del OCR en códigos Motsur
                 mat_encontrado = mat_encontrado.replace('PLE', 'PL55').replace('PLS', 'PL55')
+                mat_encontrado = re.sub(r'(PL55)S+', r'\1', mat_encontrado)
                 ext_material = mat_encontrado
                 ext_descripcion = f"PANEL TV {ext_material}"
                 
@@ -71,27 +74,27 @@ if uploaded_file is not None:
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("📄 Vista Previa y Descarga de Adjunto")
+        st.subheader("📄 Vista Previa de la Captura")
         if uploaded_file.type in ["image/png", "image/jpeg", "image/jpg"]:
-            st.image(uploaded_file, caption="Captura / Proforma Adjunta", use_container_width=True)
+            st.image(uploaded_file, caption="Captura de SAP / Proforma", use_container_width=True)
             
             st.download_button(
-                label="📥 Descargar Imagen Adjunta Original",
+                label="📥 Descargar Captura Original",
                 data=uploaded_file.getvalue(),
                 file_name=uploaded_file.name,
                 mime=uploaded_file.type
             )
         else:
-            st.info("Archivo PDF cargado como adjunto.")
+            st.info("Archivo PDF cargado.")
             st.download_button(
-                label="📥 Descargar PDF Adjunto Original",
+                label="📥 Descargar PDF Original",
                 data=uploaded_file.getvalue(),
                 file_name=uploaded_file.name,
                 mime="application/pdf"
             )
 
     with col2:
-        st.subheader("⚙️ Configuración y Valores Corregidos")
+        st.subheader("⚙️ Configuración y Valores Extraídos")
         
         with st.form("motsur_form"):
             cliente = st.text_input("Solicitante / Cliente", value=ext_cliente)
@@ -102,7 +105,7 @@ if uploaded_file is not None:
             
             st.markdown("---")
             st.markdown("### Detalle")
-            material = st.text_input("Material (Corregido automáticamente)", value=ext_material)
+            material = st.text_input("Material", value=ext_material)
             descripcion = st.text_input("Descripción", value=ext_descripcion)
             cantidad = st.text_input("Cantidad", value=ext_cantidad)
             precio_sin_iva = st.text_input("Precio Sin IVA (Valor Neto SAP)", value=ext_precio)
@@ -210,4 +213,4 @@ if uploaded_file is not None:
                     mime="application/pdf"
                 )
 else:
-    st.warning("Por favor, adjunta la proforma o captura de SAP para habilitar el reconocimiento automático.")
+    st.warning("Por favor, adjunta o pega una captura de pantalla para comenzar.")
