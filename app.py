@@ -3,8 +3,7 @@ import pandas as pd
 from datetime import datetime
 from weasyprint import HTML
 import pytesseract
-from PIL import Image
-import io
+from PIL import Image, ImageOps
 import re
 
 st.set_page_config(
@@ -17,9 +16,8 @@ st.title("📋 Procesador y Gestor de Cotizaciones Motsur")
 st.markdown("---")
 
 st.sidebar.header("Panel de Control")
-st.sidebar.info("Puedes subir tu captura o proforma de SAP. El sistema extraerá automáticamente el material y el valor neto.")
+st.sidebar.info("Adjunta la captura de SAP. Se ha optimizado la lectura OCR para fondos oscuros.")
 
-# Widget que acepta imágenes y permite pegar capturas directamente
 uploaded_file = st.file_uploader(
     "Adjunta o pega tu captura de pantalla / Proforma (PNG, JPG, JPEG)", 
     type=["png", "jpg", "jpeg", "pdf"]
@@ -37,15 +35,21 @@ ext_cantidad = "1,000 UN"
 ext_precio = "162.23"
 
 if uploaded_file is not None:
-    st.success("¡Captura / Documento cargado y procesado con éxito!")
+    st.success("¡Captura cargada y procesada con optimización OCR!")
     
-    # Procesamiento OCR de la imagen cargada o pegada
     if uploaded_file.type in ["image/png", "image/jpeg", "image/jpg"]:
         try:
             image = Image.open(uploaded_file)
-            ocr_text = pytesseract.image_to_string(image)
             
-            # Extracción del Valor Neto
+            # --- PREPROCESAMIENTO DE IMAGEN PARA SAP OSCURO ---
+            # 1. Convertir a escala de grises
+            gray_img = image.convert('L')
+            # 2. Invertir colores (fondo oscuro a blanco, texto a negro) para que Tesseract lea perfecto
+            processed_img = ImageOps.invert(gray_img)
+            
+            ocr_text = pytesseract.image_to_string(processed_img)
+            
+            # Extracción del Valor Neto (busca patrones como 162.2281 o 159.2565)
             m_valor = re.search(r'Valor\s*neto[:\s]*([0-9]+\.[0-9]+)', ocr_text, re.IGNORECASE)
             if not m_valor:
                 m_valor = re.search(r'\b(1[0-9]{2}\.[0-9]{4})\b', ocr_text)
@@ -54,7 +58,7 @@ if uploaded_file is not None:
                 val_str = m_valor.group(1).replace(',', '.')
                 ext_precio = f"{float(val_str):.2f}"
             
-            # Extracción y limpieza del código de material
+            # Extracción y limpieza del código de material (ej: PL55P75, PL55P6K)
             m_material = re.search(r'\b(PL[0-9A-Z]{5,7})\b', ocr_text, re.IGNORECASE)
             if m_material:
                 mat_encontrado = m_material.group(1).upper()
